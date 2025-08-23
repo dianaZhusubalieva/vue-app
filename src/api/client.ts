@@ -15,7 +15,30 @@ export async function fetchMarket(): Promise<MarketEntry[]> {
 }
 
 export function toDataUriSvg(svg: string): string {
-    // Encode to safe data URI for <img>
+    // Check if the SVG is already base64 encoded
+    if (svg.startsWith('data:image/svg+xml;base64,')) {
+        return svg
+    }
+
+    // Check if it's a base64 string without the data URI prefix
+    // More robust base64 detection
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/
+    if (base64Regex.test(svg) && svg.length > 20) {
+        try {
+            // Try to decode to see if it's valid base64
+            atob(svg)
+            return `data:image/svg+xml;base64,${svg}`
+        } catch (e) {
+            // Not valid base64, treat as plain SVG
+        }
+    }
+
+    // Check if it starts with <svg (plain SVG)
+    if (svg.trim().startsWith('<svg')) {
+        return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+    }
+
+    // Otherwise, treat as plain SVG and encode to data URI
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 

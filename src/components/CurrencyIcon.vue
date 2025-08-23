@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { toDataUriSvg } from '../api/client'
 
 interface Props {
@@ -13,11 +13,34 @@ const props = withDefaults(defineProps<Props>(), {
   alt: 'currency'
 })
 
-const src = computed(() => (props.svg ? toDataUriSvg(props.svg) : ''))
+const hasError = ref(false)
+
+const src = computed(() => {
+  if (!props.svg) return ''
+  try {
+    return toDataUriSvg(props.svg)
+  } catch (error) {
+    console.warn('Failed to process SVG:', error)
+    hasError.value = true
+    return ''
+  }
+})
+
+const handleError = () => {
+  hasError.value = true
+}
 </script>
 
 <template>
-  <img v-if="src" :src="src" :alt="alt" :width="size" :height="size" />
+  <img 
+    v-if="src && !hasError" 
+    :src="src" 
+    :alt="alt" 
+    :width="size" 
+    :height="size"
+    @error="handleError"
+    style="object-fit: contain;"
+  />
   <v-avatar v-else :size="size" color="grey-lighten-3">
     <v-icon size="small" color="grey">mdi-currency-usd</v-icon>
   </v-avatar>

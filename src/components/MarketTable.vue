@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { MarketEntry } from '../types'
 import Sparkline from './Sparkline.vue'
+import CurrencyIcon from './CurrencyIcon.vue'
+import { useCurrenciesStore } from '../stores/currencies'
 
 interface Row extends MarketEntry {
   pairKey: string
@@ -28,6 +30,9 @@ const emit = defineEmits<{
 // Use props to avoid TypeScript warning
 const { loading, error } = props
 
+// Get currencies store for icons
+const currencies = useCurrenciesStore()
+
 const headers = [
   { title: 'Pair', key: 'pair', sortable: true, align: 'start' as const },
   { title: 'Last', key: 'last', sortable: true, align: 'end' as const },
@@ -43,7 +48,11 @@ const handleSort = (column: any) => {
   }
 }
 
-
+// Helper function to get currency icon
+const getCurrencyIcon = (ticker: string) => {
+  const currency = currencies.tickerToCurrency[ticker.toLowerCase()]
+  return currency?.icon || null
+}
 </script>
 
 <template>
@@ -58,6 +67,19 @@ const handleSort = (column: any) => {
     >
       <template v-slot:item.pair="{ item }">
         <div class="d-flex align-center">
+          <div class="d-flex align-center mr-2">
+            <CurrencyIcon 
+              :svg="getCurrencyIcon(item.pair.primary)" 
+              :size="20" 
+              :alt="item.pair.primary"
+            />
+            <v-icon size="small" color="grey" class="mx-1">mdi-arrow-right</v-icon>
+            <CurrencyIcon 
+              :svg="getCurrencyIcon(item.pair.secondary)" 
+              :size="20" 
+              :alt="item.pair.secondary"
+            />
+          </div>
           <strong>{{ item.pairKey }}</strong>
         </div>
       </template>
