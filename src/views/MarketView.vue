@@ -20,8 +20,9 @@ const rows = computed(() => market.sorted as any)
     <v-card class="pa-6">
       <v-card-title class="d-flex align-center justify-space-between flex-wrap">
         <h1 class="text-h4 font-weight-bold">Crypto Markets</h1>
-        <div class="d-flex align-center gap-4 flex-wrap">
-          <span v-if="market.lastUpdated" class="text-body-2 text-medium-emphasis">
+        <div class="d-flex align-center flex-wrap">
+          <v-spacer></v-spacer>
+          <span v-if="market.lastUpdated" class="text-body-2 text-medium-emphasis mr-4">
             Updated: {{ new Date(market.lastUpdated!).toLocaleTimeString() }}
           </span>
           <v-text-field
@@ -34,6 +35,7 @@ const rows = computed(() => market.sorted as any)
             variant="outlined"
             style="max-width: 150px"
             hide-details
+            class="mr-4"
           />
           <v-btn
             @click="market.load"
@@ -48,7 +50,7 @@ const rows = computed(() => market.sorted as any)
       </v-card-title>
 
       <v-card-text>
-        <div class="d-flex flex-wrap gap-4 mb-4">
+        <div class="d-flex flex-wrap mb-4">
           <v-text-field
             v-model="market.searchQuery"
             placeholder="Search pair… (e.g., ETH, AUD, ETH/AUD)"
@@ -57,6 +59,7 @@ const rows = computed(() => market.sorted as any)
             prepend-inner-icon="mdi-magnify"
             hide-details
             style="min-width: 300px"
+            class="mr-4"
           />
           <v-select
             v-model="market.secondaryFilter"
