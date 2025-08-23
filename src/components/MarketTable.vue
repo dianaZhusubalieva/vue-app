@@ -1,142 +1,208 @@
 <script setup lang="ts">
-import type { MarketEntry } from '../types'
+import type { SortKey, SortDirection } from '../types'
+import { UI_CONFIG } from '../constants'
 import Sparkline from './Sparkline.vue'
 import CurrencyIcon from './CurrencyIcon.vue'
 import { useCurrenciesStore } from '../stores/currencies'
 
-interface Row extends MarketEntry {
+
+interface TableHeader {
+  title: string
+  key: string
+  sortable: boolean
+  align: 'start' | 'center' | 'end'
+}
+
+
+interface ProcessedMarketEntry {
   pairKey: string
   last: number
   percent: number
   volumePrimary: number
   volumeSecondary: number
   history: number[]
+  pair: {
+    primary: string
+    secondary: string
+  }
+  price: {
+    change?: {
+      direction: string
+    }
+  }
 }
 
 interface Props {
-  rows: Row[]
+  rows: ProcessedMarketEntry[]
   loading?: boolean
   error?: string | null
-  sortKey: 'pair' | 'last' | 'percent' | 'volumePrimary' | 'volumeSecondary'
-  sortDirection: 'asc' | 'desc'
+  sortKey: SortKey
+  sortDirection: SortDirection
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  loading: false,
+  error: null,
+})
 
 const emit = defineEmits<{
-  (e: 'sort', key: Props['sortKey']): void
+  (e: 'sort', key: SortKey): void
 }>()
-
-// Use props to avoid TypeScript warning
-const { loading, error } = props
 
 // Get currencies store for icons
 const currencies = useCurrenciesStore()
 
-const headers = [
-  { title: 'Pair', key: 'pair', sortable: true, align: 'start' as const },
-  { title: 'Last', key: 'last', sortable: true, align: 'end' as const },
-  { title: 'Change %', key: 'percent', sortable: true, align: 'end' as const },
-  { title: 'Vol (Primary)', key: 'volumePrimary', sortable: true, align: 'end' as const },
-  { title: 'Vol (Secondary)', key: 'volumeSecondary', sortable: true, align: 'end' as const },
-  { title: 'Trend', key: 'trend', sortable: false, align: 'end' as const }
+const headers: TableHeader[] = [
+  { title: 'Pair', key: 'pair', sortable: true, align: 'start' },
+  { title: 'Last', key: 'last', sortable: true, align: 'end' },
+  { title: 'Change %', key: 'percent', sortable: true, align: 'end' },
+  { title: 'Vol (Primary)', key: 'volumePrimary', sortable: true, align: 'end' },
+  { title: 'Vol (Secondary)', key: 'volumeSecondary', sortable: true, align: 'end' },
+  { title: 'Trend', key: 'trend', sortable: false, align: 'end' },
 ]
 
-const handleSort = (column: any) => {
+const handleSort = (column: any): void => {
   if (column.key && column.key !== 'trend') {
-    emit('sort', column.key as Props['sortKey'])
+    emit('sort', column.key as SortKey)
   }
 }
 
-// Helper function to get currency icon
-const getCurrencyIcon = (ticker: string) => {
+
+const getCurrencyIcon = (ticker: string): string | null => {
   const currency = currencies.tickerToCurrency[ticker.toLowerCase()]
   return currency?.icon || null
+}
+
+// format number with proper decimals
+const formatNumber = (value: number, decimals = 8): string => {
+  return value.toLocaleString(undefined, { 
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: 2,
+  })
+}
+
+// get change color class
+const getChangeColorClass = (direction: string | undefined): string => {
+  switch (direction) {
+    case 'Up':
+      return 'text-success'
+    case 'Down':
+      return 'text-error'
+    default:
+      return 'text-grey'
+  }
 }
 </script>
 
 <template>
-  <div>
+  <div class="market-table">
     <v-data-table
       :headers="headers"
       :items="rows"
-      :loading="loading"
-      :items-per-page="50"
+      :loading="false"
+      :items-per-page="UI_CONFIG.ITEMS_PER_PAGE"
       class="elevation-1"
       @update:options="handleSort"
     >
-      <template v-slot:item.pair="{ item }">
-        <div class="d-flex align-center">
-          <div class="d-flex align-center mr-2">
-            <CurrencyIcon 
-              :svg="getCurrencyIcon(item.pair.primary)" 
-              :size="20" 
-              :alt="item.pair.primary"
-            />
-            <v-icon size="small" color="grey" class="mx-1">mdi-arrow-right</v-icon>
-            <CurrencyIcon 
-              :svg="getCurrencyIcon(item.pair.secondary)" 
-              :size="20" 
-              :alt="item.pair.secondary"
+        <!-- Pair Column -->
+        <template v-slot:item.pair="{ item }">
+          <div class="d-flex align-center">
+            <div class="d-flex align-center mr-2">
+              <CurrencyIcon 
+                :svg="getCurrencyIcon(item.pair.primary)" 
+                :size="20" 
+                :alt="item.pair.primary"
+              />
+              <v-icon size="small" color="grey" class="mx-1">mdi-arrow-right</v-icon>
+              <CurrencyIcon 
+                :svg="getCurrencyIcon(item.pair.secondary)" 
+                :size="20" 
+                :alt="item.pair.secondary"
+              />
+            </div>
+            <strong>{{ item.pairKey }}</strong>
+          </div>
+        </template>
+
+        <!-- Last Price Column -->
+        <template v-slot:item.last="{ item }">
+          <span class="text-end font-weight-medium">
+            {{ formatNumber(item.last) }}
+          </span>
+        </template>
+
+        <!-- Change % Column -->
+        <template v-slot:item.percent="{ item }">
+          <span 
+            class="text-end font-weight-medium"
+            :class="getChangeColorClass(item.price.change?.direction)"
+          >
+            {{ item.percent.toFixed(2) }}%
+          </span>
+        </template>
+
+        <!-- Volume Primary Column -->
+        <template v-slot:item.volumePrimary="{ item }">
+          <span class="text-end">
+            {{ formatNumber(item.volumePrimary, 2) }}
+          </span>
+        </template>
+
+        <!-- Volume Secondary Column -->
+        <template v-slot:item.volumeSecondary="{ item }">
+          <span class="text-end">
+            {{ formatNumber(item.volumeSecondary, 2) }}
+          </span>
+        </template>
+
+        <!-- Trend Column -->
+        <template v-slot:item.trend="{ item }">
+          <div class="d-flex justify-end">
+            <Sparkline 
+              :values="item.history" 
+              :width="100" 
+              :height="28" 
             />
           </div>
-          <strong>{{ item.pairKey }}</strong>
-        </div>
-      </template>
+        </template>
 
-      <template v-slot:item.last="{ item }">
-        <span class="text-end">
-          {{ item.last.toLocaleString(undefined, { maximumFractionDigits: 8 }) }}
-        </span>
-      </template>
+        <!-- No Data State -->
+        <template v-slot:no-data>
+          <div v-if="error" class="text-center pa-4">
+            <v-icon size="large" color="error">mdi-alert-circle</v-icon>
+            <div class="text-body-1 mt-2 text-error">{{ error }}</div>
+          </div>
+          <div v-else class="text-center pa-4">
+            <v-icon size="large" color="grey">mdi-database-off</v-icon>
+            <div class="text-body-1 mt-2">No results found</div>
+          </div>
+        </template>
+      </v-data-table>
+    </div>
+  </template>
 
-      <template v-slot:item.percent="{ item }">
-        <span 
-          class="text-end"
-          :class="{
-            'text-success': item.price.change?.direction === 'Up',
-            'text-error': item.price.change?.direction === 'Down'
-          }"
-        >
-          {{ item.percent.toFixed(2) }}%
-        </span>
-      </template>
+<style scoped>
+.market-table {
+  width: 100%;
+}
 
-      <template v-slot:item.volumePrimary="{ item }">
-        <span class="text-end">
-          {{ item.volumePrimary.toLocaleString() }}
-        </span>
-      </template>
+:deep(.v-data-table) {
+  border-radius: 8px;
+  overflow: hidden;
+}
 
-      <template v-slot:item.volumeSecondary="{ item }">
-        <span class="text-end">
-          {{ item.volumeSecondary.toLocaleString() }}
-        </span>
-      </template>
+:deep(.v-data-table__wrapper) {
+  border-radius: 8px;
+}
 
-      <template v-slot:item.trend="{ item }">
-        <div class="d-flex justify-end">
-          <Sparkline :values="item.history" :width="100" :height="28" />
-        </div>
-      </template>
+:deep(.v-data-table-header) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
 
-      <template v-slot:loading>
-        <div class="text-center pa-4">
-          <v-progress-circular indeterminate color="primary"></v-progress-circular>
-          <div class="text-body-1 mt-2">Loading market data…</div>
-        </div>
-      </template>
-
-      <template v-slot:no-data>
-        <div v-if="error" class="text-center pa-4">
-          <v-icon size="large" color="error">mdi-alert-circle</v-icon>
-          <div class="text-body-1 mt-2 text-error">{{ error }}</div>
-        </div>
-        <div v-else class="text-center pa-4">
-          <v-icon size="large" color="grey">mdi-database-off</v-icon>
-          <div class="text-body-1 mt-2">No results</div>
-        </div>
-      </template>
-    </v-data-table>
-  </div>
-</template> 
+:deep(.v-data-table-header th) {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+</style> 

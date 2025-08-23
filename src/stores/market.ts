@@ -1,11 +1,18 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { fetchMarket, parseNum } from '../api/client'
-import type { MarketEntry, SortDirection, SortKey } from '../types'
+import { fetchMarket, parseNum, formatPairKey } from '../api/client'
+import type { MarketEntry, SortKey, SortDirection } from '../types'
 import { useIntervalFn } from '@vueuse/core'
+import { POLLING_CONFIG, ERROR_MESSAGES, SORT_CONFIG } from '../constants'
 
-function toPairKey(e: MarketEntry): string {
-    return `${e.pair.primary}/${e.pair.secondary}`.toUpperCase()
+
+interface ProcessedMarketEntry extends MarketEntry {
+    pairKey: string
+    last: number
+    percent: number
+    volumePrimary: number
+    volumeSecondary: number
+    history: number[]
 }
 
 export const useMarketStore = defineStore('market', () => {
@@ -14,28 +21,136 @@ export const useMarketStore = defineStore('market', () => {
     const error = ref<string | null>(null)
     const lastUpdated = ref<number | null>(null)
 
+    // Filter and sort state
     const searchQuery = ref('')
     const secondaryFilter = ref('')
-    const sortKey = ref<SortKey>('pair')
-    const sortDirection = ref<SortDirection>('asc')
+    const sortKey = ref<SortKey>(SORT_CONFIG.DEFAULT_KEY)
+    const sortDirection = ref<SortDirection>(SORT_CONFIG.DEFAULT_DIRECTION)
 
-    const pollingMs = ref(5000)
 
-    async function load(): Promise<void> {
+    const pollingMs = ref(POLLING_CONFIG.DEFAULT_INTERVAL)
+
+    const processed = computed<ProcessedMarketEntry[]>(() => {
+        return raw.value.map((entry) => {
+            const pairKey = formatPairKey(entry.pair.primary, entry.pair.secondary)
+            const last = parseNum(entry.price.last)
+            const percent = parseNum(entry.price.change?.percent)
+            const volumePrimary = parseNum(entry.volume.primary)
+            const volumeSecondary = parseNum(entry.volume.secondary)
+            const history = (entry.priceHistory ?? []).map(parseNum)
+
+            return {
+                ...entry,
+                pairKey,
+                last,
+                percent,
+                volumePrimary,
+                volumeSecondary,
+                history,
+            }
+        })
+    })
+
+    const filtered = computed(() => {
+        const query = searchQuery.value.trim().toUpperCase()
+        const secondary = secondaryFilter.value.trim().toUpperCase()
+
+        return processed.value.filter((entry) => {
+            const matchesQuery = query
+                ? entry.pairKey.includes(query) ||
+                entry.pair.primary.toUpperCase().includes(query) ||
+                entry.pair.secondary.toUpperCase().includes(query)
+                : true
+
+            const matchesSecondary = secondary
+                ? entry.pair.secondary.toUpperCase() === secondary
+                : true
+
+            return matchesQuery && matchesSecondary
+        })
+    })
+
+    const sorted = computed(() => {
+        const key = sortKey.value
+        const direction = sortDirection.value === 'asc' ? 1 : -1
+
+        return [...filtered.value].sort((a, b) => {
+            let valueA: number | string
+            let valueB: number | string
+
+            switch (key) {
+                case 'pair':
+                    valueA = a.pairKey
+                    valueB = b.pairKey
+                    break
+                case 'last':
+                    valueA = a.last
+                    valueB = b.last
+                    break
+                case 'percent':
+                    valueA = a.percent
+                    valueB = b.percent
+                    break
+                case 'volumePrimary':
+                    valueA = a.volumePrimary
+                    valueB = b.volumePrimary
+                    break
+                case 'volumeSecondary':
+                    valueA = a.volumeSecondary
+                    valueB = b.volumeSecondary
+                    break
+                default:
+                    valueA = 0
+                    valueB = 0
+            }
+
+            if (valueA < valueB) return -1 * direction
+            if (valueA > valueB) return 1 * direction
+            return 0
+        })
+    })
+
+    const uniqueSecondaries = computed(() => {
+        const secondaries = new Set<string>()
+        for (const entry of raw.value) {
+            secondaries.add(entry.pair.secondary)
+        }
+        return Array.from(secondaries).sort((a, b) => a.localeCompare(b))
+    })
+
+    const uniquePrimaries = computed(() => {
+        const primaries = new Set<string>()
+        for (const entry of raw.value) {
+            primaries.add(entry.pair.primary)
+        }
+        return Array.from(primaries).sort((a, b) => a.localeCompare(b))
+    })
+
+    // Polling setup
+    const { pause, resume, isActive } = useIntervalFn(() => {
+        load()
+    }, pollingMs, { immediate: false })
+
+    // Actions
+    const load = async (): Promise<void> => {
         if (loading.value) return
+
         loading.value = true
+
         error.value = null
+
         try {
-            raw.value = await fetchMarket()
+            const data = await fetchMarket()
+            raw.value = data
             lastUpdated.value = Date.now()
         } catch (err: any) {
-            error.value = err?.message ?? 'Failed to load market data'
+            error.value = err?.message ?? ERROR_MESSAGES.FETCH_MARKET
         } finally {
             loading.value = false
         }
     }
 
-    function setSort(key: SortKey) {
+    const setSort = (key: SortKey): void => {
         if (sortKey.value === key) {
             sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
         } else {
@@ -44,86 +159,40 @@ export const useMarketStore = defineStore('market', () => {
         }
     }
 
-    const processed = computed(() => {
-        return raw.value.map((e) => {
-            const pair = toPairKey(e)
-            const last = parseNum(e.price.last)
-            const percent = parseNum(e.price.change?.percent)
-            const volumePrimary = parseNum(e.volume.primary)
-            const volumeSecondary = parseNum(e.volume.secondary)
-            const history = (e.priceHistory ?? []).map(parseNum)
-            return { ...e, pairKey: pair, last, percent, volumePrimary, volumeSecondary, history }
-        })
-    })
+    const setSearchQuery = (query: string): void => {
+        searchQuery.value = query
+    }
 
-    const filtered = computed(() => {
-        const q = searchQuery.value.trim().toUpperCase()
-        const sec = secondaryFilter.value.trim().toUpperCase()
-        return processed.value.filter((r: any) => {
-            const matchesQ = q ? (r.pairKey.includes(q) || r.pair.primary.toUpperCase().includes(q) || r.pair.secondary.toUpperCase().includes(q)) : true
-            const matchesSec = sec ? r.pair.secondary.toUpperCase() === sec : true
-            return matchesQ && matchesSec
-        })
-    })
+    const setSecondaryFilter = (filter: string): void => {
+        secondaryFilter.value = filter
+    }
 
-    const sorted = computed(() => {
-        const key = sortKey.value
-        const dir = sortDirection.value === 'asc' ? 1 : -1
-        return [...filtered.value].sort((a: any, b: any) => {
-            let av: any
-            let bv: any
-            switch (key) {
-                case 'pair':
-                    av = a.pairKey
-                    bv = b.pairKey
-                    break
-                case 'last':
-                    av = a.last
-                    bv = b.last
-                    break
-                case 'percent':
-                    av = a.percent
-                    bv = b.percent
-                    break
-                case 'volumePrimary':
-                    av = a.volumePrimary
-                    bv = b.volumePrimary
-                    break
-                case 'volumeSecondary':
-                    av = a.volumeSecondary
-                    bv = b.volumeSecondary
-                    break
-                default:
-                    av = 0
-                    bv = 0
-            }
-            if (av < bv) return -1 * dir
-            if (av > bv) return 1 * dir
-            return 0
-        })
-    })
+    const setPollingInterval = (interval: number): void => {
+        pollingMs.value = Math.max(
+            POLLING_CONFIG.MIN_INTERVAL,
+            Math.min(POLLING_CONFIG.MAX_INTERVAL, interval)
+        ) as typeof POLLING_CONFIG.DEFAULT_INTERVAL
+    }
 
-    const uniqueSecondaries = computed(() => {
-        const set = new Set<string>()
-        for (const e of raw.value) set.add(e.pair.secondary)
-        return Array.from(set).sort((a, b) => a.localeCompare(b))
-    })
-
-    const { pause, resume, isActive } = useIntervalFn(() => {
-        load()
-    }, pollingMs, { immediate: false })
-
-    function startPolling() {
+    const startPolling = (): void => {
         resume()
-        // also load immediately on start
         load()
     }
 
-    function stopPolling() {
+    const stopPolling = (): void => {
         pause()
     }
 
-    // auto-reload if polling interval changes
+    const clearError = (): void => {
+        error.value = null
+    }
+
+    const clearFilters = (): void => {
+        searchQuery.value = ''
+        secondaryFilter.value = ''
+    }
+
+    // Auto-reload if polling interval changes
     watch(pollingMs, () => {
         if (isActive.value) {
             pause()
@@ -132,6 +201,7 @@ export const useMarketStore = defineStore('market', () => {
     })
 
     return {
+        // State
         raw,
         loading,
         error,
@@ -141,13 +211,24 @@ export const useMarketStore = defineStore('market', () => {
         sortKey,
         sortDirection,
         pollingMs,
+        isActive,
+
+        // Computed
         processed,
         filtered,
         sorted,
         uniqueSecondaries,
+        uniquePrimaries,
+
+        // Actions
         load,
         setSort,
+        setSearchQuery,
+        setSecondaryFilter,
+        setPollingInterval,
         startPolling,
         stopPolling,
+        clearError,
+        clearFilters,
     }
 }) 
