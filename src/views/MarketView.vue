@@ -18,10 +18,8 @@ const lastUpdatedFormatted = computed(() =>
 
 onMounted(async () => {
   await currencies.load()
-  // Start polling automatically
-  // market.startPolling() // TODO: Uncomment this
+  market.startPolling() 
 })
-
 
 const handleSort = (key: any): void => {
   market.setSort(key)
@@ -98,6 +96,8 @@ const handlePollingIntervalChange = (event: Event): void => {
             hide-details
             style="min-width: 300px"
             clearable
+            clear-icon="mdi-close-circle"
+            @click:clear="market.searchQuery = ''"
           />
           
           <!-- Secondary Filter -->
@@ -110,6 +110,8 @@ const handlePollingIntervalChange = (event: Event): void => {
             hide-details
             style="min-width: 200px"
             clearable
+            clear-icon="mdi-close-circle"
+            @click:clear="market.secondaryFilter = ''"
           />
           
           <!-- Clear Filters -->
@@ -137,10 +139,7 @@ const handlePollingIntervalChange = (event: Event): void => {
         <!-- Market Table -->
         <MarketTable
           :rows="rows"
-          :loading="market.loading"
           :error="market.error"
-          :sort-key="market.sortKey"
-          :sort-direction="market.sortDirection"
           @sort="handleSort"
         />
       </v-card-text>

@@ -4,11 +4,10 @@ import { NAVIGATION } from './constants'
 import MarketView from './views/MarketView.vue'
 import CurrenciesView from './views/CurrenciesView.vue'
 
-// State
+
 const currentPage = ref('markets')
 const drawer = ref(false)
 
-// Computed properties
 const currentPageTitle = computed(() => {
   const page = NAVIGATION.PAGES.find(p => p.value === currentPage.value)
   return page?.title || 'Dashboard'
@@ -35,7 +34,6 @@ const toggleDrawer = (): void => {
 
 <template>
   <v-app>
-    <!-- Navigation Drawer -->
     <v-navigation-drawer 
       v-model="drawer" 
       app
@@ -55,7 +53,7 @@ const toggleDrawer = (): void => {
       </v-list>
     </v-navigation-drawer>
 
-    <!-- App Bar -->
+
     <v-app-bar app class="app-bar">
       <v-app-bar-nav-icon @click="toggleDrawer" />
       

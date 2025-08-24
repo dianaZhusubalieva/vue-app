@@ -1,9 +1,10 @@
-import { SORT_CONFIG, CURRENCY_TYPES, MARKET_CHANGE_DIRECTIONS } from '../constants'
+import { SORT_CONFIG } from '../constants'
 
+// Type aliases
 export type SortKey = typeof SORT_CONFIG.KEYS[number]
 export type SortDirectionType = typeof SORT_CONFIG.DIRECTIONS[number]
-export type CurrencyType = typeof CURRENCY_TYPES[keyof typeof CURRENCY_TYPES]
-export type MarketChangeDirection = typeof MARKET_CHANGE_DIRECTIONS[keyof typeof MARKET_CHANGE_DIRECTIONS]
+export type CurrencyType = 'Primary' | 'Secondary'
+export type MarketChangeDirection = 'Up' | 'Down' | 'Flat'
 
 
 export interface CurrencyConfig {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SortKey, SortDirection } from '../types'
+import type { SortKey } from '../types'
 import { UI_CONFIG } from '../constants'
 import Sparkline from './Sparkline.vue'
 import CurrencyIcon from './CurrencyIcon.vue'
@@ -34,16 +34,10 @@ interface ProcessedMarketEntry {
 
 interface Props {
   rows: ProcessedMarketEntry[]
-  loading?: boolean
   error?: string | null
-  sortKey: SortKey
-  sortDirection: SortDirection
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  loading: false,
-  error: null,
-})
+defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'sort', key: SortKey): void
@@ -168,9 +162,9 @@ const getChangeColorClass = (direction: string | undefined): string => {
 
         <!-- No Data State -->
         <template v-slot:no-data>
-          <div v-if="error" class="text-center pa-4">
+          <div v-if="$props.error" class="text-center pa-4">
             <v-icon size="large" color="error">mdi-alert-circle</v-icon>
-            <div class="text-body-1 mt-2 text-error">{{ error }}</div>
+            <div class="text-body-1 mt-2 text-error">{{ $props.error }}</div>
           </div>
           <div v-else class="text-center pa-4">
             <v-icon size="large" color="grey">mdi-database-off</v-icon>

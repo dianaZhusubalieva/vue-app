@@ -46,15 +46,4 @@ export const ERROR_MESSAGES = {
     FETCH_MARKET: 'Failed to load market data',
     NETWORK_ERROR: 'Network error occurred',
     UNKNOWN_ERROR: 'An unknown error occurred',
-} as const
-
-export const CURRENCY_TYPES = {
-    PRIMARY: 'Primary',
-    SECONDARY: 'Secondary',
-} as const
-
-export const MARKET_CHANGE_DIRECTIONS = {
-    UP: 'Up',
-    DOWN: 'Down',
-    FLAT: 'Flat',
 } as const 
