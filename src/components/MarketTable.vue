@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import type { SortKey } from '../types'
-import { UI_CONFIG } from '../constants'
+import { UI_CONFIG, TABLE_HEADERS, ICONS, STYLES, LABELS } from '../constants'
 import Sparkline from './Sparkline.vue'
 import CurrencyIcon from './CurrencyIcon.vue'
 import { useCurrenciesStore } from '../stores/currencies'
-
 
 interface TableHeader {
   title: string
@@ -12,7 +11,6 @@ interface TableHeader {
   sortable: boolean
   align: 'start' | 'center' | 'end'
 }
-
 
 interface ProcessedMarketEntry {
   pairKey: string
@@ -46,14 +44,8 @@ const emit = defineEmits<{
 // Get currencies store for icons
 const currencies = useCurrenciesStore()
 
-const headers: TableHeader[] = [
-  { title: 'Pair', key: 'pair', sortable: true, align: 'start' },
-  { title: 'Last', key: 'last', sortable: true, align: 'end' },
-  { title: 'Change %', key: 'percent', sortable: true, align: 'end' },
-  { title: 'Vol (Primary)', key: 'volumePrimary', sortable: true, align: 'end' },
-  { title: 'Vol (Secondary)', key: 'volumeSecondary', sortable: true, align: 'end' },
-  { title: 'Trend', key: 'trend', sortable: false, align: 'end' },
-]
+
+const headers: TableHeader[] = [...TABLE_HEADERS.MARKETS]
 
 const handleSort = (column: any): void => {
   if (column.key && column.key !== 'trend') {
@@ -61,13 +53,12 @@ const handleSort = (column: any): void => {
   }
 }
 
-
 const getCurrencyIcon = (ticker: string): string | null => {
   const currency = currencies.tickerToCurrency[ticker.toLowerCase()]
   return currency?.icon || null
 }
 
-// format number with proper decimals
+
 const formatNumber = (value: number, decimals = 8): string => {
   return value.toLocaleString(undefined, { 
     maximumFractionDigits: decimals,
@@ -79,11 +70,11 @@ const formatNumber = (value: number, decimals = 8): string => {
 const getChangeColorClass = (direction: string | undefined): string => {
   switch (direction) {
     case 'Up':
-      return 'text-success'
+      return STYLES.COLORS.SUCCESS
     case 'Down':
-      return 'text-error'
+      return STYLES.COLORS.ERROR
     default:
-      return 'text-grey'
+      return STYLES.COLORS.GREY
   }
 }
 </script>
@@ -104,13 +95,13 @@ const getChangeColorClass = (direction: string | undefined): string => {
             <div class="d-flex align-center mr-2">
               <CurrencyIcon 
                 :svg="getCurrencyIcon(item.pair.primary)" 
-                :size="20" 
+                :size="UI_CONFIG.CURRENCY_ICON.DEFAULT_SIZE" 
                 :alt="item.pair.primary"
               />
-              <v-icon size="small" color="grey" class="mx-1">mdi-arrow-right</v-icon>
+              <v-icon size="small" color="grey" class="mx-1">{{ ICONS.ARROW_RIGHT }}</v-icon>
               <CurrencyIcon 
                 :svg="getCurrencyIcon(item.pair.secondary)" 
-                :size="20" 
+                :size="UI_CONFIG.CURRENCY_ICON.DEFAULT_SIZE" 
                 :alt="item.pair.secondary"
               />
             </div>
@@ -154,8 +145,8 @@ const getChangeColorClass = (direction: string | undefined): string => {
           <div class="d-flex justify-end">
             <Sparkline 
               :values="item.history" 
-              :width="100" 
-              :height="28" 
+              :width="UI_CONFIG.SPARKLINE.DEFAULT_WIDTH" 
+              :height="UI_CONFIG.SPARKLINE.DEFAULT_HEIGHT" 
             />
           </div>
         </template>
@@ -163,12 +154,12 @@ const getChangeColorClass = (direction: string | undefined): string => {
         <!-- No Data State -->
         <template v-slot:no-data>
           <div v-if="$props.error" class="text-center pa-4">
-            <v-icon size="large" color="error">mdi-alert-circle</v-icon>
+            <v-icon size="large" :color="STYLES.COLORS.ERROR">{{ ICONS.ALERT }}</v-icon>
             <div class="text-body-1 mt-2 text-error">{{ $props.error }}</div>
           </div>
           <div v-else class="text-center pa-4">
-            <v-icon size="large" color="grey">mdi-database-off</v-icon>
-            <div class="text-body-1 mt-2">No results found</div>
+            <v-icon size="large" color="grey">{{ ICONS.DATABASE_OFF }}</v-icon>
+            <div class="text-body-1 mt-2">{{ LABELS.COMMON.NO_DATA }}</div>
           </div>
         </template>
       </v-data-table>
@@ -199,4 +190,4 @@ const getChangeColorClass = (direction: string | undefined): string => {
   font-size: 0.75rem;
   letter-spacing: 0.5px;
 }
-</style> 
+</style>

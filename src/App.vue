@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { NAVIGATION } from './constants'
-import MarketView from './views/MarketView.vue'
-import CurrenciesView from './views/CurrenciesView.vue'
+import { ref, computed, defineAsyncComponent } from 'vue'
+import { NAVIGATION, ERROR_MESSAGES, ICONS } from './constants'
 
+// Dynamic component imports
+const MarketView = defineAsyncComponent(() => import('./views/MarketView.vue'))
+const CurrenciesView = defineAsyncComponent(() => import('./views/CurrenciesView.vue'))
 
-const currentPage = ref('markets')
+const currentPage = ref<string>(NAVIGATION.DEFAULT_PAGE)
 const drawer = ref(false)
+
+// Component mapping
+const componentMap = {
+  MarketView,
+  CurrenciesView,
+}
 
 const currentPageTitle = computed(() => {
   const page = NAVIGATION.PAGES.find(p => p.value === currentPage.value)
@@ -15,14 +22,18 @@ const currentPageTitle = computed(() => {
 
 const currentPageIcon = computed(() => {
   const page = NAVIGATION.PAGES.find(p => p.value === currentPage.value)
-  return page?.icon || 'mdi-view-dashboard'
+  return page?.icon || ICONS.VIEW_DASHBOARD
 })
 
-// Event handlers
+const currentComponent = computed(() => {
+  const page = NAVIGATION.PAGES.find(p => p.value === currentPage.value)
+  return page?.component ? componentMap[page.component as keyof typeof componentMap] : null
+})
+
 const handlePageChange = (page: string): void => {
   currentPage.value = page
   // Close drawer on mobile after navigation
-  if (window.innerWidth < 960) {
+  if (window.innerWidth < NAVIGATION.DRAWER_BREAKPOINT) {
     drawer.value = false
   }
 }
@@ -52,7 +63,6 @@ const toggleDrawer = (): void => {
         />
       </v-list>
     </v-navigation-drawer>
-
 
     <v-app-bar app class="app-bar">
       <v-app-bar-nav-icon @click="toggleDrawer" />
@@ -84,26 +94,27 @@ const toggleDrawer = (): void => {
       </v-btn-toggle>
     </v-app-bar>
 
-    <!-- Main Content -->
+    <!-- Main Content --> 
     <v-main class="main-content">
-      <MarketView v-if="currentPage === 'markets'" />
-      <CurrenciesView v-else-if="currentPage === 'currencies'" />
-      
+      <component 
+        v-if="currentComponent" 
+        :is="currentComponent" 
+      />
       <!-- Fallback for unknown pages -->
       <v-container v-else class="py-8">
         <v-card class="pa-6 text-center">
-          <v-icon size="large" color="grey" class="mb-4">mdi-alert-circle</v-icon>
-          <h2 class="text-h5 mb-2">Page Not Found</h2>
+          <v-icon size="large" color="grey" class="mb-4">{{ ICONS.ALERT }}</v-icon>
+          <h2 class="text-h5 mb-2">{{ ERROR_MESSAGES.PAGE_NOT_FOUND }}</h2>
           <p class="text-body-1 text-medium-emphasis">
-            The requested page "{{ currentPage }}" could not be found.
+            {{ ERROR_MESSAGES.PAGE_NOT_FOUND_DESCRIPTION }}
           </p>
           <v-btn
-            @click="handlePageChange('markets')"
+            @click="handlePageChange(NAVIGATION.DEFAULT_PAGE)"
             color="primary"
             class="mt-4"
-            prepend-icon="mdi-home"
+            :prepend-icon="ICONS.HOME"
           >
-            Go to Markets
+            {{ ERROR_MESSAGES.GO_TO_HOME }}
           </v-btn>
         </v-card>
       </v-container>
