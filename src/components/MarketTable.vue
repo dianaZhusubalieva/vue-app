@@ -67,7 +67,11 @@ const formatNumber = (value: number, decimals = 8): string => {
 }
 
 // get change color class
-const getChangeColorClass = (direction: string | undefined): string => {
+const getChangeColorClass = (direction: string | undefined, percent: number): string => {
+  if (percent === 0) {
+    return STYLES.COLORS.GREY
+  }
+  
   switch (direction) {
     case 'Up':
       return STYLES.COLORS.SUCCESS
@@ -76,6 +80,16 @@ const getChangeColorClass = (direction: string | undefined): string => {
     default:
       return STYLES.COLORS.GREY
   }
+}
+
+// format change percentage with sign
+const formatChangePercent = (percent: number, direction: string | undefined): string => {
+  if (percent === 0) {
+    return '0.00%'
+  }
+  
+  const sign = direction === 'Up' ? '+' : direction === 'Down' ? '-' : ''
+  return `${sign}${percent.toFixed(2)}%`
 }
 </script>
 
@@ -120,9 +134,9 @@ const getChangeColorClass = (direction: string | undefined): string => {
         <template v-slot:item.percent="{ item }">
           <span 
             class="text-end font-weight-medium"
-            :class="getChangeColorClass(item.price.change?.direction)"
+            :class="getChangeColorClass(item.price.change?.direction, item.percent)"
           >
-            {{ item.percent.toFixed(2) }}%
+            {{ formatChangePercent(item.percent, item.price.change?.direction) }}
           </span>
         </template>
 
